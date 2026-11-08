@@ -1,0 +1,160 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Typer Pro - Cyberpunk Typing Arcade</title>
+    <style>
+        :root {
+            --neon-cyan: #00f0ff;
+            --neon-pink: #ff007f;
+            --neon-red: #ff3333;
+            --bg-dark: #0a0a12;
+        }
+        * { box-sizing: border-box; margin: 0; padding: 0; font-family: 'Courier New', Courier, monospace; }
+        body { background: var(--bg-dark); color: #fff; overflow-x: hidden; min-height: 100vh; position: relative; }
+        
+        /* 3D Cyberpunk Grid Background Loop */
+        .grid-container { position: fixed; top: 0; left: 0; width: 100vw; height: 100vh; z-index: -1; perspective: 500px; background: radial-gradient(circle at 50% 30%, #141226 0%, var(--bg-dark) 80%); }
+        .grid-floor { position: absolute; width: 200%; height: 200%; bottom: -50%; left: -50%; background-image: linear-gradient(to right, rgba(0, 240, 255, 0.15) 2px, transparent 2px), linear-gradient(to bottom, rgba(0, 240, 255, 0.15) 2px, transparent 2px); background-size: 50px 50px; transform: rotateX(75deg); animation: gridScroll 4s linear infinite; transform-origin: center top; transition: background-image 0.3s ease; }
+        .grid-container.danger .grid-floor { background-image: linear-gradient(to right, rgba(255, 51, 51, 0.25) 2px, transparent 2px), linear-gradient(to bottom, rgba(255, 51, 51, 0.25) 2px, transparent 2px); }
+        @keyframes gridScroll { from { background-position: 0 0; } to { background-position: 0 200px; } }
+
+        /* UI Framework Layout */
+        .wrapper { max-width: 900px; margin: 0 auto; padding: 40px 20px; text-align: center; }
+        header h1 { font-size: 3.5rem; color: var(--neon-cyan); text-shadow: 0 0 15px var(--neon-cyan); letter-spacing: 4px; margin-bottom: 30px; font-weight: 900; }
+        
+        .dashboard { background: rgba(13, 13, 23, 0.85); border: 2px solid var(--neon-cyan); box-shadow: 0 0 20px rgba(0, 240, 255, 0.2); border-radius: 12px; padding: 30px; margin-bottom: 30px; backdrop-filter: blur(8px); }
+        .stats-bar { display: flex; justify-content: space-around; margin-bottom: 25px; font-size: 1.3rem; font-weight: bold; color: var(--neon-pink); text-shadow: 0 0 5px var(--neon-pink); }
+        .stat-box span { color: #fff; font-size: 1.8rem; display: block; margin-top: 5px; }
+
+        .text-display { font-size: 1.6rem; line-height: 2.2rem; background: rgba(0,0,0,0.4); padding: 20px; border-radius: 8px; border-left: 4px solid var(--neon-pink); margin-bottom: 25px; text-align: left; letter-spacing: 1px; min-height: 110px; position: relative; }
+        .text-display.glitch { animation: shake 0.15s linear 2; border-left-color: var(--neon-red); }
+        @keyframes shake { 0%, 100% { transform: translateX(0); } 25% { transform: translateX(-6px); } 75% { transform: translateX(6px); } }
+        
+        .correct { color: var(--neon-cyan); text-shadow: 0 0 8px var(--neon-cyan); }
+        .incorrect { color: var(--neon-red); background: rgba(255,51,51,0.2); text-shadow: 0 0 8px var(--neon-red); }
+        .current { border-bottom: 3px solid #fff; }
+
+        input-field { width: 100%; padding: 15px; font-size: 1.3rem; background: #12121e; border: 2px solid #333; color: #fff; border-radius: 8px; outline: none; transition: border-color 0.2s; }
+        input-field:focus { border-color: var(--neon-cyan); box-shadow: 0 0 10px rgba(0,240,255,0.3); }
+
+        /* Social Share Suite */
+        .share-panel { background: rgba(20, 10, 25, 0.85); border: 2px dashed var(--neon-pink); border-radius: 12px; padding: 25px; margin-top: 30px; text-align: left; }
+        .share-panel h3 { color: var(--neon-pink); margin-bottom: 15px; }
+        .share-row { display: flex; gap: 15px; align-items: center; margin-top: 10px; }
+        .fallback-input { flex-grow: 1; padding: 12px; background: #000; border: 1px solid #444; color: #ccff00; border-radius: 6px; font-size: 0.9rem; }
+        .btn { padding: 12px 24px; background: var(--neon-pink); border: none; color: #fff; font-weight: bold; border-radius: 6px; cursor: pointer; text-transform: uppercase; letter-spacing: 1px; transition: transform 0.1s, box-shadow 0.2s; }
+        .btn:hover { box-shadow: 0 0 15px var(--neon-pink); transform: translateY(-1px); }
+        
+        /* Leaderboard simulated */
+        .leaderboard-table { width: 100%; margin-top: 20px; border-collapse: collapse; text-align: left; }
+        .leaderboard-table th { color: var(--neon-cyan); border-bottom: 2px solid #333; padding: 10px; }
+        .leaderboard-table td { padding: 10px; border-bottom: 1px solid #222; }
+    </style>
+</head>
+<body>
+
+    <div class="grid-container" id="gridContainer">
+        <div class="grid-floor"></div>
+    </div>
+
+    <div class="wrapper">
+        <header>
+            <h1>TYPER PRO</h1>
+        </header>
+
+        <div class="dashboard">
+            <div class="stats-bar">
+                <div class="stat-box">WPM<span id="wpmDisplay">0</span></div>
+                <div class="stat-box">ACCURACY<span id="accDisplay">100%</span></div>
+                <div class="stat-box">TIME LEFT<span id="timerDisplay">30s</span></div>
+            </div>
+
+            <div class="text-display" id="textDisplay">Loading session sentences...</div>
+            <input type="text" class="input-field" id="typingInput" placeholder="Click here and start typing to initiate test..." autofocus autocomplete="off">
+        </div>
+
+        <!-- Share Module -->
+        <div class="share-panel">
+            <h3>⚡ Share & Challenge Friends (Versus Mode)</h3>
+            <p>Your friends can play the exact same text sequence using your generated challenge link:</p>
+            <div class="share-row">
+                <input type="text" class="fallback-input" id="shareLinkInput" readonly value="https://vercel.app">
+                <button class="btn" id="copyBtn" onclick="copyLinkFallback()">Copy Link</button>
+            </div>
+        </div>
+    </div>
+
+    <script>
+        // Core Logic, 3D tracking & Hardware Mobile Haptics Engine
+        const sentences = [
+            "The cybernetic capybara ordered an espresso matrix at midnight.",
+            "Synthetic database structures melted into the vaporwave ocean line.",
+            "Error code forty-four generated a catastrophic neon system breakdown."
+        ];
+        
+        let activeText = sentences[Math.floor(Math.random() * sentences.length)];
+        const textDisplay = document.getElementById('textDisplay');
+        const typingInput = document.getElementById('typingInput');
+        const gridContainer = document.getElementById('gridContainer');
+        
+        // Initialize Game Rendering
+        textDisplay.innerHTML = activeText.split('').map(char => <span>${char}</span>).join('');
+        let charSpans = textDisplay.querySelectorAll('span');
+        if(charSpans.length > 0) charSpans[0].classList.add('current');
+
+        typingInput.addEventListener('input', (e) => {
+            const inputVal = typingInput.value;
+            const currentLength = inputVal.length;
+            
+            // Check for Typos & Trigger Mobile Haptics
+            if (inputVal[currentLength - 1] !== activeText[currentLength - 1] && currentLength > 0) {
+                textDisplay.classList.add('glitch');
+                gridContainer.classList.add('danger');
+                if (navigator.vibrate) {
+                    navigator.vibrate(40); // 40ms mobile vibration burst
+                }
+                setTimeout(() => {
+                    textDisplay.classList.remove('glitch');
+                    gridContainer.classList.remove('danger');
+                }, 150);
+            }
+            
+            charSpans.forEach((span, index) => {
+                if (index < currentLength) {
+                    if (inputVal[index] === activeText[index]) {
+                        span.className = 'correct';
+                    } else {
+                        span.className = 'incorrect';
+                    }
+                } else if (index === currentLength) {
+                    span.className = 'current';
+                } else {
+                    span.className = '';
+                }
+            });
+        });
+
+        // Fail-safe manual link fallback utility 
+        function copyLinkFallback() {
+            const copyText = document.getElementById("shareLinkInput");
+            copyText.select();
+            copyText.setSelectionRange(0, 99999);
+            try {
+                navigator.clipboard.writeText(copyText.value);
+                document.getElementById("copyBtn").innerText = "Copied!";
+            } catch (err) {
+                document.getElementById("copyBtn").innerText = "Select & Copy!";
+            }
+        }
+
+        // Mouse Parallax Perspective Adjustment
+        document.addEventListener('mousemove', (e) => {
+            const xAxis = (window.innerWidth / 2 - e.pageX) / 25;
+            const yAxis = (window.innerHeight / 2 - e.pageY) / 25;
+            gridContainer.style.transform = rotateY(${xAxis}deg) rotateX(${yAxis}deg);
+        });
+    </script>
+</body>
+</html>
